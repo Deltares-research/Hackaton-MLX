@@ -66,6 +66,7 @@
 
   .out { background: rgba(250,252,255,.97); border-radius: 22px; padding: 26px 30px 24px; min-width: 0; }
   .out h2 { margin: 0; font-size: 30px; }
+  .data-status { font-size: 12px; }
   .big { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-top: 6px; }
   .pct { font-size: 84px; font-weight: 800; line-height: 1.05; letter-spacing: -2px; }
   .badge { font-size: 22px; font-weight: 700; padding: 12px 24px; border-radius: 999px; }
@@ -122,7 +123,7 @@
 
     <section class="out low" id="out" aria-live="polite">
       <h2>MLX Team outing</h2>
-      <div class="location">Utrecht, Netherlands</div>
+      <div class="location">Utrecht, Netherlands · <span class="data-status" id="data-status" role="status" aria-live="polite">Loading outing data</span></div>
       <div class="big"><div class="pct" id="pct">–</div><div class="badge" id="badge">–</div></div>
       <div class="sub">Chance of getting wet</div>
       <div class="bar"><i id="fill" style="width:0"></i></div>
@@ -151,7 +152,8 @@ function predict(row) {
   const wp = water in waterPenalty ? waterPenalty[water] : 0.8;
   const tippy   = /tippy|unstable/.test(route) ? 1.0 : 0;
   const exposed = /exposed|open/.test(route)   ? 0.9 : 0;
-  const expAdj  = exp === "high" ? -0.8 : exp === "low" ? 0.8 : 0;
+  const beginner = ["low", "beginner", "novice"].includes(exp);
+  const expAdj  = exp === "high" ? -0.8 : beginner ? 0.8 : 0;
 
   const z = -1.25 + 0.9 * rain + 0.07 * wind + wp + tippy + exposed + expAdj;
   const probability = 1 / (1 + Math.exp(-z));
@@ -161,16 +163,13 @@ function predict(row) {
     { key: "rain",       ok: rain < 0.5, label: rain < 0.5 ? "No rain expected"    : "Rain expected" },
     { key: "water",      ok: water === "calm", label: water === "calm" ? "Calm water" : "Unsettled water" },
     { key: "canoe_route",ok: !tippy && !exposed, label: !tippy && !exposed ? "Stable canoe, sheltered route" : "Tippy canoe or exposed route" },
-    { key: "experience", ok: exp !== "low", label: exp !== "low" ? "Experienced paddler" : "Limited experience" }
+    { key: "experience", ok: !beginner, label: beginner ? "Limited experience" : "Experienced paddler" }
   ];
   return { probability, factors };
 }
 /* ===================================================================== */
 
 const COLS = ["rain_mm_h", "wind_kmh", "water_conditions", "canoe_route", "experience"];
-const SAMPLE = `id,rain_mm_h,wind_kmh,water_conditions,canoe_route,experience
-MLX Team outing,0.2,12,calm,"stable, sheltered",medium
-`;
 
 let rows = [], results = [];
 const $ = id => document.getElementById(id);
@@ -200,7 +199,7 @@ function parseCSV(text) {
 /* ---- load + run ---- */
 function load(text) {
   const t = parseCSV(text);
-  if (t.length < 2) return fail("The CSV needs a header row and at least one data row.");
+  if (t.length !== 2) return fail("The outing CSV must have a header and exactly one data row.");
   const head = t[0].map(h => h.trim().toLowerCase());
   const missing = COLS.filter(c => !head.includes(c));
   if (missing.length) return fail("Missing column(s): " + missing.join(", ") + ".");
@@ -234,7 +233,7 @@ function render() {
     ["wind",  "Wind",               `(${r.wind_kmh} km/h)`],
     ["water", "Water conditions",   `(${r.water_conditions})`],
     ["canoe", "Canoe & route",      `(${r.canoe_route})`],
-    ["person","My experience",      `(${r.experience})`]
+    ["person","Our experience",      `(${r.experience})`]
   ];
   $("inputs").innerHTML = blocks.map(([ic, k, v]) =>
     `<div class="in">${svg(ic)}<div><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div></div>`).join("");
@@ -253,7 +252,21 @@ function render() {
 function level(p) { return p < 33 ? { name: "Low risk", cls: "low" } : p < 66 ? { name: "Moderate risk", cls: "mod" } : { name: "High risk", cls: "high" }; }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
-load(SAMPLE);
+async function loadOutingData() {
+  const status = $("data-status");
+  try {
+    const response = await fetch(`canoeing_input_template.csv?t=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) throw new Error(`CSV request failed (${response.status})`);
+    load(await response.text());
+    status.textContent = `Updated ${new Date().toLocaleTimeString()}`;
+  } catch (error) {
+    status.textContent = "CSV unavailable";
+    console.error("Could not load outing CSV:", error);
+  }
+}
+
+loadOutingData();
+setInterval(loadOutingData, 30000);
 </script>
 </body>
 </html>
