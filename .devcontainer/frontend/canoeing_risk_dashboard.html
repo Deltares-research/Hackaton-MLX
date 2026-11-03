@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Canoeing risk dashboard</title>
+<style>
+  :root {
+    --navy: #12315c;
+    --navy-deep: #0c2446;
+    --ink: #172a46;
+    --muted: #5d6f8a;
+    --card: #f6f9fd;
+    --line: #d9e1ec;
+    --green: #1fa84f;
+    --green-soft: #cdeec9;
+    --amber: #d98a12;
+    --amber-soft: #fbe6bd;
+    --red: #cf3b3b;
+    --red-soft: #f6cfcf;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    color: var(--ink);
+    background:
+      linear-gradient(135deg, rgba(19,54,67,.78), rgba(84,111,85,.54)),
+      repeating-linear-gradient(158deg, transparent 0 74px, rgba(244,239,213,.16) 75px 78px, transparent 79px 142px),
+      radial-gradient(ellipse at 78% 12%, #84b5ac 0%, transparent 38%),
+      linear-gradient(180deg, #507b83 0%, #779895 48%, #9b9d7c 100%);
+    padding: 28px 20px 48px;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+
+  /* ---------- dashboard ---------- */
+  .board {
+    display: grid;
+    grid-template-columns: 310px 120px 170px 70px minmax(0, 1fr);
+    align-items: start;
+  }
+  .inputs { display: flex; flex-direction: column; gap: 12px; }
+  .in {
+    height: 72px; background: rgba(246,249,253,.95); border-radius: 14px;
+    display: flex; align-items: center; gap: 14px; padding: 0 16px;
+  }
+  .in svg { width: 40px; height: 40px; flex: none; color: #1f5fae; }
+  .in .k { font-size: 17px; font-weight: 600; line-height: 1.2; }
+  .in .v { font-size: 15.5px; color: var(--muted); }
+  .links { width: 120px; height: 408px; }
+  .links path { fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; }
+
+  .model {
+    margin-top: 109px; height: 190px; border-radius: 20px;
+    background: var(--navy); border: 3px solid #d7e3f5; color: #fff;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    text-align: center; font-weight: 700; font-size: 20px; line-height: 1.2;
+  }
+  .model svg { width: 76px; height: 76px; }
+  .arrow { margin-top: 196px; height: 16px; background: #fff; position: relative; margin-right: 18px; border-radius: 2px; }
+  .arrow::after {
+    content: ""; position: absolute; right: -22px; top: -14px;
+    border-left: 24px solid #fff; border-top: 22px solid transparent; border-bottom: 22px solid transparent;
+  }
+
+  .out { background: rgba(250,252,255,.97); border-radius: 22px; padding: 26px 30px 24px; min-width: 0; }
+  .out h2 { margin: 0; font-size: 30px; }
+  .data-status { font-size: 12px; }
+  .big { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-top: 6px; }
+  .pct { font-size: 84px; font-weight: 800; line-height: 1.05; letter-spacing: -2px; }
+  .badge { font-size: 22px; font-weight: 700; padding: 12px 24px; border-radius: 999px; }
+  .sub { font-size: 22px; margin: 2px 0 14px; }
+  .bar { height: 32px; background: #dbe2ec; border-radius: 999px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; border-radius: 999px; transition: width .35s ease; }
+  hr { border: 0; border-top: 2px solid var(--line); margin: 24px 0 18px; }
+  .out h3 { margin: 0 0 8px; font-size: 26px; }
+  .fac { display: flex; align-items: center; gap: 14px; padding: 9px 0; font-size: 20px; }
+  .fac svg.ic { width: 36px; height: 36px; color: #1f5fae; flex: none; }
+  .fac span { flex: 1; }
+  .dot { width: 30px; height: 30px; border-radius: 50%; flex: none; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 17px; }
+
+  .low  { --c: var(--green); --s: var(--green-soft); }
+  .mod  { --c: var(--amber); --s: var(--amber-soft); }
+  .high { --c: var(--red);   --s: var(--red-soft); }
+  .pct { color: var(--c); }
+  .badge { background: var(--s); color: var(--c); }
+  .bar > i { background: var(--c); }
+
+  @media (max-width: 1000px) {
+    .board { grid-template-columns: 1fr; gap: 16px; }
+    .links, .arrow { display: none; }
+    .model { margin: 0; height: 120px; flex-direction: row; }
+    .model svg { width: 56px; height: 56px; }
+    .pct { font-size: 64px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .bar > i { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <section class="board">
+    <div class="inputs" id="inputs"></div>
+
+    <svg class="links" viewBox="0 0 120 408" aria-hidden="true">
+      <path d="M0 36 C60 36, 60 204, 120 204"/>
+      <path d="M0 120 C60 120, 60 204, 120 204"/>
+      <path d="M0 204 L120 204"/>
+      <path d="M0 288 C60 288, 60 204, 120 204"/>
+      <path d="M0 372 C60 372, 60 204, 120 204"/>
+    </svg>
+
+    <div class="model">
+      <svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M32 10v44M32 14c-7-6-18-2-18 8 0 3 1 5 3 7-3 3-3 9 2 11 3 2 7 1 9-1M32 14c7-6 18-2 18 8 0 3-1 5-3 7 3 3 3 9-2 11-3 2-7 1-9-1"/>
+        <circle cx="22" cy="26" r="2"/><circle cx="42" cy="26" r="2"/><circle cx="24" cy="40" r="2"/><circle cx="40" cy="40" r="2"/>
+      </svg>
+      <div>Canoeing<br>Risk Model</div>
+    </div>
+
+    <div class="arrow" aria-hidden="true"></div>
+
+    <section class="out low" id="out" aria-live="polite">
+      <h2>MLX Team outing</h2>
+      <div class="location">Utrecht, Netherlands · <span class="data-status" id="data-status" role="status" aria-live="polite">Loading outing data</span></div>
+      <div class="big"><div class="pct" id="pct">–</div><div class="badge" id="badge">–</div></div>
+      <div class="sub">Chance of getting wet</div>
+      <div class="bar"><i id="fill" style="width:0"></i></div>
+      <hr>
+      <h3>Key factors</h3>
+      <div id="factors"></div>
+    </section>
+  </section>
+</div>
+
+<script>
+/* =====================================================================
+   DUMMY MODEL  –  replace this function with your real model.
+   Input : one row object, e.g.
+           { rain_mm_h: 0, wind_kmh: 12, water_conditions: "calm",
+             canoe_route: "stable, sheltered", experience: "high" }
+   Output: { probability: 0..1, factors: [{key, label, ok}] }
+   ===================================================================== */
+function predict(row) {
+  const rain = num(row.rain_mm_h), wind = num(row.wind_kmh);
+  const water = String(row.water_conditions || "").toLowerCase();
+  const route = String(row.canoe_route || "").toLowerCase();
+  const exp   = String(row.experience || "").toLowerCase();
+
+  const waterPenalty = { calm: 0, ripples: 0.6, choppy: 1.4, rough: 2.5 };
+  const wp = water in waterPenalty ? waterPenalty[water] : 0.8;
+  const tippy   = /tippy|unstable/.test(route) ? 1.0 : 0;
+  const exposed = /exposed|open/.test(route)   ? 0.9 : 0;
+  const beginner = ["low", "beginner", "novice"].includes(exp);
+  const expAdj  = exp === "high" ? -0.8 : beginner ? 0.8 : 0;
+
+  const z = -1.25 + 0.9 * rain + 0.07 * wind + wp + tippy + exposed + expAdj;
+  const probability = 1 / (1 + Math.exp(-z));
+
+  const factors = [
+    { key: "wind",       ok: wind < 20,  label: wind < 20  ? "Low wind speed"      : "Strong wind" },
+    { key: "rain",       ok: rain < 0.5, label: rain < 0.5 ? "No rain expected"    : "Rain expected" },
+    { key: "water",      ok: water === "calm", label: water === "calm" ? "Calm water" : "Unsettled water" },
+    { key: "canoe_route",ok: !tippy && !exposed, label: !tippy && !exposed ? "Stable canoe, sheltered route" : "Tippy canoe or exposed route" },
+    { key: "experience", ok: !beginner, label: beginner ? "Limited experience" : "Experienced paddler" }
+  ];
+  return { probability, factors };
+}
+/* ===================================================================== */
+
+const COLS = ["rain_mm_h", "wind_kmh", "water_conditions", "canoe_route", "experience"];
+
+let rows = [], results = [];
+const $ = id => document.getElementById(id);
+
+function num(v) { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; }
+
+/* ---- CSV ---- */
+function parseCSV(text) {
+  const out = []; let row = [], cur = "", q = false;
+  text = text.replace(/^\uFEFF/, "");
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"' && text[i + 1] === '"') { cur += '"'; i++; }
+      else if (c === '"') q = false;
+      else cur += c;
+    } else if (c === '"') q = true;
+    else if (c === ",") { row.push(cur); cur = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(cur); cur = ""; out.push(row); row = [];
+    } else cur += c;
+  }
+  if (cur !== "" || row.length) { row.push(cur); out.push(row); }
+  return out.filter(r => r.some(x => x.trim() !== ""));
+}
+/* ---- load + run ---- */
+function load(text) {
+  const t = parseCSV(text);
+  if (t.length !== 2) return fail("The outing CSV must have a header and exactly one data row.");
+  const head = t[0].map(h => h.trim().toLowerCase());
+  const missing = COLS.filter(c => !head.includes(c));
+  if (missing.length) return fail("Missing column(s): " + missing.join(", ") + ".");
+  rows = t.slice(1).map((r, i) => {
+    const o = {};
+    head.forEach((h, j) => o[h] = (r[j] ?? "").trim());
+    if (!o.id) o.id = "Trip " + (i + 1);
+    return o;
+  });
+  results = rows.map(predict);
+  render();
+}
+function fail(message) { throw new Error(message); }
+
+/* ---- icons ---- */
+const ICON = {
+  rain:  '<path d="M7 15a4 4 0 0 1 .6-7.9A6 6 0 0 1 19 9a3.5 3.5 0 0 1-.5 7H7z" fill="currentColor" stroke="none"/><path d="M9 19l-1 2M13 19l-1 2M17 19l-1 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  wind:  '<path d="M3 9h11a3 3 0 1 0-3-3M3 14h15a3 3 0 1 1-3 3M3 19h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  water: '<path d="M2 8q2.5-3 5 0t5 0 5 0 5 0M2 13q2.5-3 5 0t5 0 5 0 5 0M2 18q2.5-3 5 0t5 0 5 0 5 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  canoe: '<path d="M1 12c4 0 6 1 11 1s7-1 11-1c-1 4-5 7-11 7S2 16 1 12z" fill="currentColor" stroke="none"/>',
+  person:'<circle cx="12" cy="7" r="4.5" fill="currentColor" stroke="none"/><path d="M3 22c0-5 4-8 9-8s9 3 9 8z" fill="currentColor" stroke="none"/>'
+};
+const svg = (k, cls) => `<svg class="${cls || ""}" viewBox="0 0 24 24" aria-hidden="true">${ICON[k]}</svg>`;
+const FACTOR_ICON = { wind: "wind", rain: "rain", water: "water", canoe_route: "canoe", experience: "person" };
+
+/* ---- render ---- */
+function render() {
+  const r = rows[0], res = results[0];
+  const blocks = [
+    ["rain",  "Rain forecast",      `(${r.rain_mm_h} mm/h)`],
+    ["wind",  "Wind",               `(${r.wind_kmh} km/h)`],
+    ["water", "Water conditions",   `(${r.water_conditions})`],
+    ["canoe", "Canoe & route",      `(${r.canoe_route})`],
+    ["person","Our experience",      `(${r.experience})`]
+  ];
+  $("inputs").innerHTML = blocks.map(([ic, k, v]) =>
+    `<div class="in">${svg(ic)}<div><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div></div>`).join("");
+
+  const pct = Math.round(res.probability * 100), lvl = level(pct);
+  const out = $("out");
+  out.className = "out " + lvl.cls;
+  $("pct").textContent = pct + "%";
+  $("badge").textContent = (lvl.cls === "low" ? "✓ " : lvl.cls === "high" ? "! " : "") + lvl.name;
+  $("fill").style.width = Math.max(pct, 3) + "%";
+  $("factors").innerHTML = res.factors.map(f =>
+    `<div class="fac">${svg(FACTOR_ICON[f.key], "ic")}<span>${esc(f.label)}</span>` +
+    `<div class="dot" style="background:${f.ok ? "var(--green)" : "var(--amber)"}" aria-label="${f.ok ? "good" : "watch"}">${f.ok ? "✓" : "!"}</div></div>`).join("");
+
+}
+function level(p) { return p < 33 ? { name: "Low risk", cls: "low" } : p < 66 ? { name: "Moderate risk", cls: "mod" } : { name: "High risk", cls: "high" }; }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+async function loadOutingData() {
+  const status = $("data-status");
+  try {
+    const response = await fetch(`canoeing_input_template.csv?t=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) throw new Error(`CSV request failed (${response.status})`);
+    load(await response.text());
+    status.textContent = `Updated ${new Date().toLocaleTimeString()}`;
+  } catch (error) {
+    status.textContent = "CSV unavailable";
+    console.error("Could not load outing CSV:", error);
+  }
+}
+
+loadOutingData();
+setInterval(loadOutingData, 30000);
+</script>
+</body>
+</html>

@@ -9,10 +9,14 @@ description = "A hackathon prototype for classifying KNMI hourly precipitation."
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "numpy>=1.26,<3",
+    "statsmodels>=0.14,<1",
+]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0,<9.0"]
 
 [tool.setuptools]
 py-modules = ["precipitation"]
+packages = ["arima"]
