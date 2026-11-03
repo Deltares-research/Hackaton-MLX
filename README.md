@@ -62,6 +62,8 @@ Open the repository in a VS Code Dev Container to use the configured Python envi
 
 All hackathon tasks are listed in [BACKLOG.md](BACKLOG.md). The existing code and tests are a deliberately small baseline, not a weather forecast or safety advisory. For a real trip, consult current official forecasts, warnings, and local water conditions.
 
+For an experimental sub-hourly ARIMA forecast of a specified canoeing window, see [arima/README.md](arima/README.md). It requires a separate dataset; the bundled hourly exercise data cannot represent a 14:30–16:30 window exactly.
+
 ## License
 
 The project code and documentation are licensed under the [MIT License](LICENSE), copyright 2026 Deltares. KNMI-derived data remains subject to its source terms; the MIT License does not replace those terms.
